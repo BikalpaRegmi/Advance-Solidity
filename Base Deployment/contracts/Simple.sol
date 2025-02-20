@@ -15,5 +15,4 @@ function mint(address _receipentId , string memory _tokenUri) external {
     _setTokenURI(tokenId , _tokenUri);
 }
 
-
 }

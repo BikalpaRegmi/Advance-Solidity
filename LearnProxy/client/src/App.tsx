@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+import dmabi from "./bytecode/diamondabi.json";
+import setabi from "./bytecode/setmsgabi.json";
+import getabi from "./bytecode/getmsgabi.json";
+import getcountabi from "./bytecode/getmsgcountabi.json"
 import { ethers } from "ethers";
-import abi from "./byteCodes/abi.json";
 
-interface EthereumState {
+interface ContractConnect {
+  account: string | null;
+  provider: ethers.BrowserProvider | null;
   signer: ethers.Signer | null;
   contract: ethers.Contract | null;
-  provider: ethers.BrowserProvider | null;
-  account: string | null;
 }
 
 declare global {
@@ -17,84 +20,137 @@ declare global {
 }
 
 function App() {
-  const [state, setState] = useState<EthereumState>({
+  const [state, setState] = useState<ContractConnect>({
+    account: null,
+    provider: null,
     signer: null,
     contract: null,
-    provider: null,
-    account: null,
   });
-  const [data, setData] = useState<string>();
-  const [name, setName] = useState<string>();
 
-  const template = async () => {
+  const [message, setMessage] = useState<string>("");
+  const [count, setCount] = useState<number>(0); // Add state for count
+  const [input, setInput] = useState<string>("");
+
+  const fetchMessage = async () => {
+    if (!state.contract) {
+      console.error("Contract is not initialized yet.");
+      return;
+    }
+
     try {
-      const contractAddress: string =
-        "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
-      const contractAbi: any = abi.abi;
-
-      if (window.ethereum) {
-        const accounts: string[] = await window.ethereum.request({
-          method: "eth_requestAccounts",
-        });
-
-        window.ethereum.on("accountsChanged", () => {
-          window.location.reload();
-        });
-
-        const provider: ethers.BrowserProvider = new ethers.BrowserProvider(
-          window.ethereum
-        );
-        const signer: ethers.Signer = await provider.getSigner();
-        const contract: ethers.Contract = new ethers.Contract(
-          contractAddress,
-          contractAbi,
-          signer
-        );
-
-        setState({ signer, contract, provider, account: accounts[0] });
-      }
+      const res: any = await state.contract.getMessage();
+      setMessage(res);
     } catch (error) {
-      console.log(error);
+      console.error("Error fetching message:", error);
     }
   };
-  const getData = async () => {
-    const updatedName: string = await state.contract?.GetValue();
-    console.log(updatedName);
-    setName(updatedName);
+
+  const getCount = async () => {
+    const res = await state.contract?.getMsgCount();
+    setCount(Number(res));
+    console.log(Number(res));
   };
-  
+
+  const handleAddMessage = async () => {
+    if (!state.contract) {
+      console.error("Contract is not initialized yet.");
+      return;
+    }
+
+    try {
+      const tx = await state.contract.setMessage(input);
+      console.log("Transaction sent:", tx);
+      await tx.wait();
+      console.log("Transaction confirmed!");
+      fetchMessage();
+    } catch (error) {
+      console.error("Transaction failed:", error);
+    }
+  };
+
+  const template = async () => {
+    if (!window.ethereum) {
+      console.error("MetaMask is not installed.");
+      return;
+    }
+
+    try {
+      const baseSepoliaChainId = "0x14a34"; // Base Sepolia chain ID (decimal 84532)
+
+      // Request the user to switch network to Base Sepolia
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: baseSepoliaChainId }],
+      });
+
+      const contractAddress: string =
+        "0xB8B99f6CF247c101F3164982F54A48bB3Fc34639";
+      const contractAbi: any = [
+        ...dmabi.abi,
+        ...getabi.abi,
+        ...setabi.abi,
+        ...getcountabi.abi,
+      ];
+
+      const accounts: string[] = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      });
+      const provider: ethers.BrowserProvider = new ethers.BrowserProvider(
+        window.ethereum
+      );
+      const signer: ethers.Signer = await provider.getSigner();
+      const contract: ethers.Contract = new ethers.Contract(
+        contractAddress,
+        contractAbi,
+        signer
+      );
+
+      setState({
+        signer: signer,
+        account: accounts[0],
+        provider: provider,
+        contract: contract,
+      });
+
+      console.log("Connected account:", accounts[0]);
+    } catch (error) {
+      console.error("Error connecting to MetaMask:", error);
+    }
+  };
+
   useEffect(() => {
     template();
   }, []);
 
   useEffect(() => {
-    getData();
-  }, [state.contract]);
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
     if (state.contract) {
-      await state.contract.toSet(data);
-    } else {
-      throw new Error("Contract Not Found");
+      fetchMessage();
+      getCount();
     }
-  };
+  }, [state.contract]); // Fetch message only after contract is set
 
   return (
-    <div>
-      <form action="" onSubmit={handleSubmit}>
-        <input
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setData(e.target.value)
-          }
-          className="inputType"
-          type="text"
-          placeholder="Plz enter name"
-        />
-        <button type="submit"> Submit </button>
-      </form>
-      <h1>{name!}</h1>
-    </div>
+    <>
+      <div className="w-1/2 h-96 align-bottom m-auto">
+        <span>
+          <input
+            type="text"
+            className="border-2 border-amber-500"
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setInput(e.target.value)
+            }
+          />
+          <button
+            onClick={handleAddMessage}
+            className="border-2 border-green-500 rounded-md px-1 bg-green-600"
+          >
+            Submit
+          </button>
+        </span>
+        <h1 className="answer text-3xl font-bold mt-3">{message}</h1>
+        <h1 className="answer text-3xl font-bold mt-3">{count!}</h1>
+      </div>
+    </>
   );
 }
 
