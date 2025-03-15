@@ -1,5 +1,7 @@
 {
   "dependencies": {
+    "@aave/core-v3": "^1.19.3",
+    "dotenv": "^16.4.7",
     "hardhat": "^2.22.19"
   },
   "devDependencies": {
