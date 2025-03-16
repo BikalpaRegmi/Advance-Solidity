@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.10;
+pragma solidity 0.8.27;
 
 import {FlashLoanSimpleReceiverBase} from "@aave/core-v3/contracts/flashloan/base/FlashLoanSimpleReceiverBase.sol";
 import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
@@ -17,10 +17,8 @@ interface IDex {
 
 contract FlashLoanArbitrage is FlashLoanSimpleReceiverBase {
     address payable owner;
-    // Dex contract address
     address private dexContractAddress =
-        address(0); //needs to be completed
-        
+        0xce3C14ad8e35faC16849dB3c07dbD1c0035474f7 ;
 
     IERC20 private dai;
     IERC20 private usdc;
@@ -36,9 +34,7 @@ contract FlashLoanArbitrage is FlashLoanSimpleReceiverBase {
         dexContract = IDex(dexContractAddress);
     }
 
-    /**
-        This function is called after your contract has received the flash loaned amount
-     */
+    
     function executeOperation(
         address asset,
         uint256 amount,
@@ -46,23 +42,13 @@ contract FlashLoanArbitrage is FlashLoanSimpleReceiverBase {
         address initiator,
         bytes calldata params
     ) external override returns (bool) {
-        //
-        // This contract now has the funds requested.
-        // Your logic goes here.
-        //
-
-        // Arbirtage operation
-        dexContract.depositUsdc(1000000000); // 1000 USDC
+       
+        dexContract.depositUsdc(1000000000); 
         dexContract.buyDai();
         dexContract.depositDai(dai.balanceOf(address(this)));
         dexContract.sellDai();
 
-        // At the end of your logic above, this contract owes
-        // the flashloaned amount + premiums.
-        // Therefore ensure your contract has enough to repay
-        // these amounts.
-
-        // Approve the Pool contract allowance to *pull* the owed amount
+        
         uint256 amountOwed = amount + premium;
         IERC20(asset).approve(address(POOL), amountOwed);
 
